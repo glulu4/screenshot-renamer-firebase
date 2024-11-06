@@ -8,16 +8,55 @@
  */
 
 import {onRequest} from "firebase-functions/v2/https";
-import * as logger from "firebase-functions/logger";
 import OpenAI from "openai";
 import "dotenv/config";
+
+import {onCall} from "firebase-functions/https";
+import * as logger from "firebase-functions/logger";
+import {User} from "../../app/types/types";
+import {createTimestampFromObject, TimeStampJSONObj} from "./util";
+import {Timestamp} from "firebase-admin/firestore";
+import db from "./converter";
+import * as functions from "firebase-functions";
 // Start writing functions
 // https://firebase.google.com/docs/functions/typescript
+
+
+export const addNewUser = onCall(async (request) => {
+  const user: User = request.data;
+
+  user.createdAt = createTimestampFromObject(
+    user.createdAt as unknown as TimeStampJSONObj
+  );
+  try {
+    user.createdAt = Timestamp.now();
+    await db.users.doc(user.uid).set(user);
+    const addedUserDoc = await db.users.doc(user.uid).get();
+    if (!addedUserDoc.exists) {
+      return {
+        message: "User document not found after creation.",
+        success: false,
+        user: null,
+      };
+    }
+    return {
+      message: "added and returned user",
+      success: true,
+      user: addedUserDoc.data(),
+    };
+  } catch (error) {
+    logger.info("error in addNewUser: ", error);
+    throw new functions.https.HttpsError(
+      "internal",
+      "Unable to add user",
+      error
+    );
+  }
+});
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 });
-
 
 export const generateCoverLetter = onRequest({cors: true}, async (req, res) => {
   res.setHeader("Access-Control-Allow-Origin", "http://localhost:3000");
@@ -64,6 +103,33 @@ export const generateCoverLetter = onRequest({cors: true}, async (req, res) => {
   }
 });
 
+
+export const getUser = onCall(async (request) => {
+  const uid: string = request.data;
+  try {
+    const userDoc = await db.users.doc(uid).get();
+    if (!userDoc.exists) {
+      return {
+        message: `No user exist with id ${uid}`,
+        success: false,
+        data: {} as User,
+      };
+    } else {
+      return {
+        message: "Successfully retrieved user",
+        success: true,
+        data: userDoc.data(),
+      };
+    }
+  } catch (error) {
+    logger.info("error in getUser: ", error);
+    throw new functions.https.HttpsError(
+      "internal",
+      "Unable to get user",
+      error,
+    );
+  }
+});
 
 export const helloWorld = onRequest((request, response) => {
   logger.info("Hello logs!", {structuredData: true});
