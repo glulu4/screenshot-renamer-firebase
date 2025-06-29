@@ -1,7 +1,7 @@
 import {FirestoreDataConverter} from "firebase-admin/firestore";
 import {firestore} from "firebase-admin";
 import {initializeApp} from "firebase-admin/app";
-import {User} from "../../app/types/types"
+import {UserDevice} from "./types";
 // import {logger} from "firebase-functions/v1";
 // import * as functions from "firebase-functions";
 initializeApp();
@@ -18,7 +18,7 @@ const dataPoint = <T>(collectionPath: string) =>
 
 const db = {
   firestore: firestore(),
-  users: dataPoint<User>("users"),
+  users: dataPoint<UserDevice>("UserDevice"),
 
 };
 
